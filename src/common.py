@@ -45,7 +45,7 @@ class Agent(BaseModel):
 
 class AgentConfig:
     def __init__(self):
-        self.max_interactions = 3
+        self.max_interactions = 5
         self.model = None
         self.token_limit: int = 10000
 

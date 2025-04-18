@@ -29,10 +29,12 @@ class Brain:
             "max_tokens": self.config.token_limit,
             "messages": messages,
         }
-        if output_format:
-            openai_params["response_format"] = output_format
-            completion = self.config.model.chat.completions.parse(**openai_params)
-            return completion.choices[0].message.parsed
 
-        completion = self.config.model.chat.completions.create(**openai_params)
-        return completion.choices[0].message.content
+        if output_format:
+            # Use beta.chat.completions.parse for BaseModel outputs
+            completion = self.config.model.beta.chat.completions.parse(**openai_params)
+            return completion.choices[0].message.parsed
+        else:
+            # Use regular chat.completions.create for text outputs
+            completion = self.config.model.chat.completions.create(**openai_params)
+            return completion.choices[0].message.content

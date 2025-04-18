@@ -4,7 +4,7 @@ from openai import OpenAI
 
 from common import Agent, AgentConfig
 from reactexecutor import ReActExecutor
-from tools import calculator_tool, people_search_tool
+from tools import calculator_tool, people_search_tool, today_tool
 
 # store this in your bash environment variables
 openai = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
@@ -14,7 +14,7 @@ main_agent = Agent(
     instructions="""
     You are a helpful multi-tool assistance that can use different tools to answer questions
     """,
-    functions=[calculator_tool, people_search_tool],
+    functions=[calculator_tool, people_search_tool, today_tool],
 )
 
 if __name__ == "__main__":

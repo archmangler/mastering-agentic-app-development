@@ -33,16 +33,12 @@ def date_of_today():
     return datetime.date.today().strftime("%Y-%m-%d")
 
 
-calculator_tool = Tool(
-    name="Calculator", func=perform_calculator, desc="Use this to perform calculations"
-)
-
 people_search_agent = Agent(
-    name="People Search Agent",
+    name="People_search_Agent",
     instructions="""
     You are a helpful assistant that can search for people information on wikipedia using the person's name.
     """,
-    functions=[calculator_tool],
+    functions=[search_wikipedia],
 )
 
 people_search_tool = Tool(
@@ -51,5 +47,21 @@ people_search_tool = Tool(
     desc="Use this to search for people information on wikipedia using the person's name",
 )
 
+wikipedia_tool = Tool(
+    name="Wikipedia_search",
+    func=search_wikipedia,
+    desc="Use this to search for people information on wikipedia using the person's name",
+)
+
+people_search_agent.functions = [wikipedia_tool]
+
+calculator_tool = Tool(
+    name="Calculator", func=perform_calculator, desc="Use this to perform calculations"
+)
+
+today_tool = Tool(
+    name="Date_of_today", func=date_of_today, desc="Use this to get the current date"
+)
+
 # Export the tools directly - no need for self-import
-__all__ = ["calculator_tool", "people_search_tool"]
+__all__ = ["calculator_tool", "people_search_tool", "today_tool"]

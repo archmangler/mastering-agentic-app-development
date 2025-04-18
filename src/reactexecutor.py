@@ -60,9 +60,30 @@ class ReActExecutor:
         return agent, False
 
     def __observation(self, current_agent: Agent) -> ReactEnd:
-        return ReactEnd(
-            stop=True, final_answer="This is the final answer", confidence=0.5
+        prompt = f"""Is the context information enough to finally answer to this request: {self.request}?
+
+        Assign a confidence score between 0.0 and 1.0 to guide your approach:
+
+        - 0.8+: Continue with the current approach
+        - 0.5-0.7: Consider minor adjustments to the approach
+        - Below 0.5: Seriously consider backtracking ans trying a different approach
+
+        CONTEXT HISTORY:
+        ---
+        {self.brain.recall()}
+        ---
+        """
+        response: ReactEnd = self.brain.think(
+            prompt=prompt, agent=current_agent, output_format=ReactEnd
         )
+        self.brain.remember("Assistant: " + response.final_answer)
+        self.brain.remember("Assistant: " + response.confidence)
+        print("====================== Begin Observation ==============================")
+        print(f"Observation: {response.final_answer} \n")
+        print(f"Approach Confidence score: {response.confidence} \n")
+        self.brain.remember("Assistant: " + response)
+        print("====================== End Observation ==============================")
+        return response
 
     def execute(self, query_input: str) -> str:
         print(f"Request: {query_input}")
@@ -85,31 +106,76 @@ class ReActExecutor:
                 return observation.final_answer
 
     def __choose_action(self, agent: Agent):
-        # TODO: implement the logic to choose the action
-        response: ToolChoice = ToolChoice(
-            tool_name="People_search",
-            reason_of_choice="reason_of_choice",
-        )
-        tool = [tool for tool in agent.functions if tool.name == response.tool_name]
-        return tool[0] if tool else None
+        try:
+            # Create ToolChoice instance first
+            response = ToolChoice(
+                tool_name="People_search",
+                reason_of_choice="To search for information about Linus Torvalds",
+            )
+
+            # Log the action being taken
+            message = f""" Assistant: I will use the tool: {response.tool_name} because {response.reason_of_choice}"""
+            print(message)
+
+            # Find matching tool
+            matching_tools = [
+                tool for tool in agent.functions if tool.name == response.tool_name
+            ]
+            if matching_tools:
+                return matching_tools[0]
+            else:
+                print(
+                    f"Warning: Tool {response.tool_name} not found in available tools"
+                )
+                return None
+
+        except Exception as e:
+            print(f"Error in choose_action: {str(e)}")
+            return None
 
     def __execute_action(self, tool: Tool, agent: Agent) -> None:
         if tool is None:
             return
-        parameters = inspect.signature(tool.func).parameters
+        print(
+            f"\n ================== Executing tool: {tool.name} ================== \n "
+        )
 
-        # TODO: Ask ChatGPT to get the parameters values
-        response = f"""
-        {{
-        { ', '.join([f'"{param}": <function parameter value>' for param in parameters]) }
-        }}
+        prompt = f"""
+        To answer the following request as best you can: {self.request}.
+        Determine the inputs to send to the tool: {tool.name}.
+        Given that the function signature of the tool function is: {inspect.signature(tool.func)}.
+
+        CONTEXT HISTORY:
+        ---
+        {self.brain.recall()}
+        ---
         """
 
-        try:
-            resp = json.loads(response)
-        except json.JSONDecodeError:
-            print("Error in setting the parameters from ChatGPT")
-            print(f"Invalid response: {response}")
-            return
-        action_reult = tool.func(**resp)
-        print(f"Action result: {action_reult}")
+        parameters = inspect.signature(tool.func).parameters
+        response = {}
+
+        if len(parameters) > 0:
+            prompt += f"""RESPONSE FORMAT:
+            {{
+                {
+                ', '.join([f'"{param}": <function parameter> ' for param in parameters])
+                }
+            }}
+            """
+            response = self.brain.think(prompt=prompt, agent=agent)
+            self.brain.remember("Assistant: " + response)
+            try:
+                response = json.loads(response)
+            except Exception as e:
+                print(f"Error in parsing response: {e}")
+                print(f"Invalid response: {response}")
+                self.brain.remember(
+                    "Assistant: Error in parsing json response: " + response
+                )
+                return
+
+        action_result = tool.func(**response)
+        print(f"Action result: {action_result}")
+        msg = f"Assistant: Action result: {action_result}"
+        print(msg)
+        self.brain.remember(f"Assistant: {msg}")
