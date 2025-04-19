@@ -39,20 +39,27 @@ class Tool:
 
 class Agent(BaseModel):
     name: str = "Agent"
-    model: str = "gpt-3.5-turbo"
+    model: str = "gpt-4o"
     instructions: Union[str, Callable[[], str]] = "You are a helpful agent"
     functions: List = []
     parallel_tool_calls: bool = True
+    max_interactions: int = 5
+    tool_choice: str = None
 
     def tools_to_json(self):
-        return function_to_json(self.functions)
+        return [function_to_json(f) for f in self.functions]
+
+    def get_instructions(self, context_variables: dict = {}) -> str:
+        if callable(self.instructions):
+            return self.instructions(context_variables)
+        return self.instructions
 
 
 class AgentConfig:
     def __init__(self):
         self.max_interactions = 5
         self.model = None
-        self.token_limit: int = 10000
+        self.token_limit: int = 5000
 
     def with_model_client(self, model: OpenAI):
         self.model = model
