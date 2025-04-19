@@ -133,9 +133,11 @@ class AppRunner:
                 debug_print(True, f"Executing tool: {tool_name}")
                 result = tool.function()
 
+                # Updated response format to match OpenAI's requirements
                 tool_response = {
-                    "role": "function",
+                    "role": "tool",  # Changed from 'function' to 'tool'
                     "name": tool_name,
+                    "tool_call_id": tool_call.id,  # Added tool_call_id
                     "content": (
                         str(result)
                         if not isinstance(result, Agent)
@@ -152,8 +154,9 @@ class AppRunner:
                 results.append(
                     {
                         "response": {
-                            "role": "function",
+                            "role": "tool",  # Changed from 'function' to 'tool'
                             "name": tool_name,
+                            "tool_call_id": tool_call.id,  # Added tool_call_id
                             "content": f"Error: {str(e)}",
                         },
                         "result": None,
