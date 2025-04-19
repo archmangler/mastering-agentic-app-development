@@ -39,7 +39,7 @@ class Tool:
 
 class Agent(BaseModel):
     name: str = "Agent"
-    model: str = "gpt-4o"
+    model: str = "gpt-3.5-turbo"
     instructions: Union[str, Callable[[], str]] = "You are a helpful agent"
     functions: List = []
     parallel_tool_calls: bool = True
@@ -47,7 +47,22 @@ class Agent(BaseModel):
     tool_choice: str = None
 
     def tools_to_json(self):
-        return [function_to_json(f) for f in self.functions]
+        """Convert the agent's functions to OpenAI's function calling format"""
+        return [
+            {
+                "type": "function",
+                "function": {
+                    "name": f.name,
+                    "description": f.description,
+                    "parameters": (
+                        f.parameters
+                        if f.parameters
+                        else {"type": "object", "properties": {}}
+                    ),
+                },
+            }
+            for f in self.functions
+        ]
 
     def get_instructions(self, context_variables: dict = {}) -> str:
         if callable(self.instructions):

@@ -1,9 +1,14 @@
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
 
 from common import Agent
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
-AgentFunction = Callable[[], Union[str, "Agent", dict]]
+
+class AgentFunction(BaseModel):
+    name: str
+    description: str
+    function: Callable[[], Union[str, "Agent", dict]]
+    parameters: Optional[Dict] = None
 
 
 class TaskResponse(BaseModel):
