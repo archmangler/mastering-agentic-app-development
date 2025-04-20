@@ -6,8 +6,6 @@
 
 * Look in src. You're a smart guy, figure it out.
 
-I'll create a comprehensive markdown file that documents the codebase. I'll structure it to be clear, navigable, and educational.
-
 # Agentic AI Application Development Tutorial
 
 This repository serves as a practical guide for learning how to develop Agentic AI applications. It provides a progressive learning path through two implementations, demonstrating the evolution from basic concepts to production-ready patterns.
