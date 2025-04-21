@@ -7,12 +7,15 @@ from common import Agent
 from custom_types import AgentFunction, TaskResponse
 from openai import OpenAI
 from openai.types.chat import ChatCompletionMessage
+from result_handler import ToolCallHandler
 from utils import debug_print
 
 
 class AppRunner:
     def __init__(self, client: OpenAI):
         self.client = client
+        # self.result_handler = ToolCallHandler()
+        self.tool_handler = ToolCallHandler()
 
     def run(
         self, agent: Agent, messages: list, variables: dict, max_interactions=10
@@ -37,15 +40,41 @@ class AppRunner:
                 )
                 debug_print(True, "Sending request to OpenAI...")
                 response = self.client.chat.completions.create(**llm_params)
-                message = response.choices[0].message
+                message: ChatCompletionMessage = response.choices[
+                    0
+                ].message  # response.choices[0].message
+                message.sender = active_agent.name
+                history_msg = json.loads(message.model_dump_json())
+                history.append(history_msg)
+                loop_count += 1
                 debug_print(
                     True, f"Received response from OpenAI: {message.model_dump_json()}"
                 )
 
-                # Add assistant's response to history
-                history_msg = json.loads(message.model_dump_json())
-                history.append(history_msg)
-
+                if not message.tool_calls:
+                    debug_print(True, "No tool calls, ending conversation ...")
+                    break
+                debug_print(True, message.tool_calls)
+                response = self.tool_handler.handle_tool_calls(
+                    message.tool_calls,
+                    active_agent.functions,
+                    active_agent,
+                )
+                debug_print(True, "Response from tool handler: ", str(response))
+                break
+                # Should this be here??
+                history.extend(response.messages)
+                active_agent = response.agent
+                context_variables = response.context_variables
+                loop_count += 1
+                debug_print(
+                    True, f"Response from tool calls: {response.model_dump_json()}"
+                )
+                self.tool_handler.handle_tool_calls(
+                    message.tool_calls,
+                    active_agent.functions,
+                    active_agent,
+                )
                 # Process tool calls if present
                 if message.tool_calls:
                     tool_results = self.__process_tool_calls(

@@ -1,5 +1,10 @@
 # Note: This file is not used in the current implementation
-from .utils import debug_print
+import json
+from typing import List
+
+from custom_types import Agent, AgentFunction, FuncResult, TaskResponse
+from openai.types.chat import ChatCompletionMessageToolCall
+from utils import debug_print
 
 
 class ToolCallHandler:
@@ -29,7 +34,7 @@ class ToolCallHandler:
         functions: List[AgentFunction],
         active_agent: Agent,
     ) -> TaskResponse:
-        functions_map = {f.__name__: f for f in functions}
+        functions_map = {f.name: f for f in functions}
         partial_response = TaskResponse(messages=[], agent=None, context_variables={})
         for tool_call in tool_calls:
             self.__handle_call(tool_call, functions_map, partial_response)
@@ -42,7 +47,7 @@ class ToolCallHandler:
         partial_response: TaskResponse,
     ):
         name = tool_call.function.name
-        if name not in function.map:
+        if name not in functions_map:
             debug_print(True, f"Tool {name} not found")
             partial_response.messages.append(
                 {
@@ -53,12 +58,12 @@ class ToolCallHandler:
                 }
             )
             return
-        raw_result = self.__execute_tool(function_map, name, tool_call)
+        raw_result = self.__execute_tool(functions_map, name, tool_call)
         result = self.__handle_function_result(raw_result)
         partial_response.messages.append(
             {
                 "role": "tool",
-                "content": result.value,
+                "content": f"Tool {name} not found",
                 "tool_name": name,
                 "tool_call_id": tool_call.id,
             }
@@ -68,6 +73,9 @@ class ToolCallHandler:
 
     @staticmethod
     def __execute_tool(function_map, name, tool_call: ChatCompletionMessageToolCall):
-        args = json.loads(tool_call.function.parameters)
+        # Get the AgentFunction object from the map
+        agent_function = function_map[name]
+        # Use the parameters from the AgentFunction object
+        args = agent_function.parameters or {}
         debug_print(True, f"Executing tool {name} with args {args}")
-        return function_map[name](**args)
+        return agent_function.function(**args)
