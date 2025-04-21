@@ -37,39 +37,6 @@ class Tool:
         self.func = func
 
 
-class Agent(BaseModel):
-    name: str = "Agent"
-    model: str = "gpt-3.5-turbo"
-    instructions: Union[str, Callable[[], str]] = "You are a helpful agent"
-    functions: List = []
-    parallel_tool_calls: bool = True
-    max_interactions: int = 5
-    tool_choice: str = None
-
-    def tools_to_json(self):
-        """Convert the agent's functions to OpenAI's function calling format"""
-        return [
-            {
-                "type": "function",
-                "function": {
-                    "name": f.name,
-                    "description": f.description,
-                    "parameters": (
-                        f.parameters
-                        if f.parameters
-                        else {"type": "object", "properties": {}}
-                    ),
-                },
-            }
-            for f in self.functions
-        ]
-
-    def get_instructions(self, context_variables: dict = {}) -> str:
-        if callable(self.instructions):
-            return self.instructions(context_variables)
-        return self.instructions
-
-
 class AgentConfig:
     def __init__(self):
         self.max_interactions = 5
@@ -93,3 +60,32 @@ class AgentConfig:
         return self
 
     client = OpenAI()  # This will use your OPENAI_API_KEY environment variable
+
+
+class Agent:
+    def __init__(self, name, instructions, functions=None):
+        self.name = name
+        self.instructions = instructions
+        self.functions = functions or []
+
+    def tools_to_json(self):
+        """Convert the agent's functions to the format expected by OpenAI's API."""
+        return [
+            {
+                "type": "function",
+                "function": {
+                    "name": f.name if isinstance(f, AgentFunction) else f.__name__,
+                    "description": (
+                        f.description
+                        if isinstance(f, AgentFunction)
+                        else (f.__doc__ or "")
+                    ),
+                    "parameters": (
+                        f.parameters
+                        if isinstance(f, AgentFunction) and hasattr(f, "parameters")
+                        else {"type": "object", "properties": {}}
+                    ),
+                },
+            }
+            for f in self.functions
+        ]

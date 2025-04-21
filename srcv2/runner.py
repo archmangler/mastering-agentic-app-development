@@ -3,8 +3,7 @@ import json
 from collections import defaultdict
 from sys import argv
 
-from common import Agent
-from custom_types import AgentFunction, TaskResponse
+from custom_types import Agent, AgentFunction, TaskResponse
 from openai import OpenAI
 from openai.types.chat import ChatCompletionMessage
 from result_handler import ToolCallHandler
@@ -22,7 +21,6 @@ class AppRunner:
     ) -> TaskResponse:
         """Execute the conversation loop with improved flow control and error handling."""
         debug_print(True, "AppRunner: Starting execution...")
-
         # Initialize state
         loop_count = 0
         active_agent = agent
@@ -32,78 +30,30 @@ class AppRunner:
 
         while loop_count < max_interactions:
             debug_print(True, f"Interaction {loop_count + 1}/{max_interactions}")
-
-            try:
-                # Create and send request
-                llm_params = self.__create_inference_request(
-                    active_agent, history, context_variables
-                )
-                debug_print(True, "Sending request to OpenAI...")
-                response = self.client.chat.completions.create(**llm_params)
-                message: ChatCompletionMessage = response.choices[
-                    0
-                ].message  # response.choices[0].message
-                message.sender = active_agent.name
-                history_msg = json.loads(message.model_dump_json())
-                history.append(history_msg)
-                loop_count += 1
-                debug_print(
-                    True, f"Received response from OpenAI: {message.model_dump_json()}"
-                )
-
-                if not message.tool_calls:
-                    debug_print(True, "No tool calls, ending conversation ...")
-                    break
-                debug_print(True, message.tool_calls)
-                response = self.tool_handler.handle_tool_calls(
-                    message.tool_calls,
-                    active_agent.functions,
-                    active_agent,
-                )
-                debug_print(True, "Response from tool handler: ", str(response))
-                break
-                # Should this be here??
-                history.extend(response.messages)
-                active_agent = response.agent
-                context_variables = response.context_variables
-                loop_count += 1
-                debug_print(
-                    True, f"Response from tool calls: {response.model_dump_json()}"
-                )
-                self.tool_handler.handle_tool_calls(
-                    message.tool_calls,
-                    active_agent.functions,
-                    active_agent,
-                )
-                # Process tool calls if present
-                if message.tool_calls:
-                    tool_results = self.__process_tool_calls(
-                        message.tool_calls, active_agent
-                    )
-                    for result in tool_results:
-                        history.append(result["response"])
-                        if isinstance(result["result"], Agent):
-                            active_agent = result["result"]
-                            debug_print(
-                                True, f"Switched to new agent: {active_agent.name}"
-                            )
-
-                # Check for conversation completion
-                if self.__should_end_conversation(message):
-                    debug_print(True, "Conversation complete, breaking...")
-                    break
-
-            except Exception as e:
-                debug_print(True, f"Error in conversation loop: {str(e)}")
-                # Add error message to history
-                history.append(
-                    {"role": "system", "content": f"Error occurred: {str(e)}"}
-                )
-                break
-
+            print(f"Active agent: {active_agent}")
+            llm_params = self.__create_inference_request(
+                active_agent, history, context_variables
+            )
+            response = self.client.chat.completions.create(**llm_params)
+            message: ChatCompletionMessage = response.choices[0].message
+            history_msg = json.loads(message.model_dump_json())
+            history.append(history_msg)
             loop_count += 1
+            if not message.tool_calls:
+                debug_print(True, "No tool calls found in response")
+                break
+            debug_print(True, message.tool_calls)
 
-        debug_print(True, "AppRunner: Execution completed")
+            response = self.tool_handler.handle_tool_calls(
+                message.tool_calls,
+                active_agent.functions,
+                active_agent,
+            )
+            debug_print(True, f"response from tool handler: {str(response)}")
+            history.extend(response.messages)
+            if response.agent:
+                active_agent = response.agent
+
         return TaskResponse(
             messages=history[init_len:],
             agent=active_agent,

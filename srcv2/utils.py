@@ -1,4 +1,5 @@
 import inspect
+import json
 from datetime import datetime
 
 
@@ -32,3 +33,20 @@ def function_to_json(func) -> dict:
         tuple: "array",
         set: "array",
     }
+
+
+def pretty_print_messages(messages):
+    """Pretty print the messages in a readable format."""
+    for message in messages:
+        print(f"\n{message['role'].upper()}:")
+        if message.get("content"):
+            print(message["content"])
+        if message.get("tool_calls"):
+            for tool_call in message["tool_calls"]:
+                print(f"\nTool Call: {tool_call['function']['name']}")
+                args = tool_call["function"].get("arguments", "{}")
+                try:
+                    arg_str = json.dumps(json.loads(args)).replace(":", "=")
+                    print(f"Arguments: {arg_str}")
+                except json.JSONDecodeError:
+                    print(f"Arguments: {args}")

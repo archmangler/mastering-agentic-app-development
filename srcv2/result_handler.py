@@ -1,4 +1,3 @@
-# Note: This file is not used in the current implementation
 import json
 from typing import List
 
@@ -52,30 +51,56 @@ class ToolCallHandler:
             partial_response.messages.append(
                 {
                     "role": "tool",
-                    "content": f"Error: tool {name} not found",
+                    "content": f"Tool {name} not found",
                     "tool_name": name,
                     "tool_call_id": tool_call.id,
                 }
             )
             return
-        raw_result = self.__execute_tool(functions_map, name, tool_call)
-        result = self.__handle_function_result(raw_result)
-        partial_response.messages.append(
-            {
+
+        try:
+            raw_result = self.__execute_tool(functions_map, name, tool_call)
+            result = self.__handle_function_result(raw_result)
+
+            # Create the tool response message
+            tool_response = {
                 "role": "tool",
-                "content": f"Tool {name} not found",
+                "content": result.value,
                 "tool_name": name,
                 "tool_call_id": tool_call.id,
             }
-        )
-        if result.agent:
-            partial_response.agent = result.agent
+
+            partial_response.messages.append(tool_response)
+
+            if result.agent:
+                partial_response.agent = result.agent
+
+        except Exception as e:
+            debug_print(True, f"Error executing tool {name}: {str(e)}")
+            partial_response.messages.append(
+                {
+                    "role": "tool",
+                    "content": f"Error executing tool {name}: {str(e)}",
+                    "tool_name": name,
+                    "tool_call_id": tool_call.id,
+                }
+            )
 
     @staticmethod
     def __execute_tool(function_map, name, tool_call: ChatCompletionMessageToolCall):
         # Get the AgentFunction object from the map
         agent_function = function_map[name]
-        # Use the parameters from the AgentFunction object
-        args = agent_function.parameters or {}
-        debug_print(True, f"Executing tool {name} with args {args}")
+
+        # Parse arguments from the tool call
+        try:
+            args = (
+                json.loads(tool_call.function.arguments)
+                if tool_call.function.arguments
+                else {}
+            )
+            debug_print(True, f"Executing tool {name} with args {args}")
+        except json.JSONDecodeError as e:
+            debug_print(True, f"Error parsing arguments for tool {name}: {e}")
+            args = {}
+
         return agent_function.function(**args)
